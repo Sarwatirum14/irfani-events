@@ -91,30 +91,33 @@ pipeline {
     // App container is LEFT RUNNING after the pipeline
     // so the deployment stays up (as required by the assignment)
     post {
-        always {
-            script {
-                def status  = currentBuild.result ?: 'SUCCESS'
-                def emoji   = status == 'SUCCESS' ? '✅' : '❌'
-                def subject = "${emoji} Irfani Events — Tests ${status} (Build #${env.BUILD_NUMBER})"
+    always {
+        script {
+            def status  = currentBuild.result ?: 'SUCCESS'
+            def emoji   = status == 'SUCCESS' ? '✅' : '❌'
+            def subject = "${emoji} Irfani Events — Tests ${status} (Build #${env.BUILD_NUMBER})"
+            def appUrl  = env.APP_URL ?: 'http://localhost:3000'
+            def committer = env.COMMITTER_EMAIL ?: 'unknown'
 
-                def body = """
-                    <html><body>
-                    <h2>Irfani Events — Selenium Test Results</h2>
-                    <table border="1" cellpadding="8">
-                      <tr><td><b>Build Status</b></td><td>${status}</td></tr>
-                      <tr><td><b>Build Number</b></td><td>${env.BUILD_NUMBER}</td></tr>
-                      <tr><td><b>Triggered By</b></td><td>${env.COMMITTER_EMAIL}</td></tr>
-                      <tr><td><b>Branch</b></td><td>${env.GIT_BRANCH}</td></tr>
-                      <tr><td><b>App URL</b></td><td>${APP_URL}</td></tr>
-                    </table>
-                    <br>
-                    <p>The full HTML test report is attached to this email.</p>
-                    <p><a href="${env.BUILD_URL}testReport">Click here to view results in Jenkins</a></p>
-                    </body></html>
-                """
+            def body = """
+                <html><body>
+                <h2>Irfani Events — Selenium Test Results</h2>
+                <table border="1" cellpadding="8">
+                  <tr><td><b>Build Status</b></td><td>${status}</td></tr>
+                  <tr><td><b>Build Number</b></td><td>${env.BUILD_NUMBER}</td></tr>
+                  <tr><td><b>Triggered By</b></td><td>${committer}</td></tr>
+                  <tr><td><b>Branch</b></td><td>${env.GIT_BRANCH}</td></tr>
+                  <tr><td><b>App URL</b></td><td>${appUrl}</td></tr>
+                </table>
+                <br>
+                <p>The full HTML test report is attached to this email.</p>
+                <p><a href="${env.BUILD_URL}testReport">Click here to view results in Jenkins</a></p>
+                </body></html>
+            """
 
+            if (committer != 'unknown') {
                 emailext(
-                    to:          "${env.COMMITTER_EMAIL}",
+                    to:          "${committer}",
                     subject:     subject,
                     body:        body,
                     mimeType:    'text/html',
@@ -123,4 +126,5 @@ pipeline {
             }
         }
     }
+}
 }
