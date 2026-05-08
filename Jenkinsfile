@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        APP_URL     = 'http://localhost:3000'
+        APP_URL     = 'http://51.145.167.177:3000/'
         MONGODB_URI = credentials('MONGODB_URI')
         IMAGE_APP   = 'irfani-events-app'
         IMAGE_TEST  = 'irfani-events-tests'
@@ -36,7 +36,6 @@ pipeline {
 
         stage('Deploy App') {
             steps {
-                // Stop old container if running, then start fresh
                 sh "docker rm -f ${IMAGE_APP} 2>/dev/null || true"
                 sh """
                     docker run -d \
@@ -46,7 +45,6 @@ pipeline {
                         -p 3000:3000 \
                         ${IMAGE_APP}
                 """
-                // Wait until app responds (max 60 seconds)
                 sh """
                     echo 'Waiting for app to start...'
                     for i in \$(seq 1 12); do
@@ -88,43 +86,46 @@ pipeline {
 
     }
 
-    // App container is LEFT RUNNING after the pipeline
-    // so the deployment stays up (as required by the assignment)
     post {
-    always {
-        script {
-            def status  = currentBuild.result ?: 'SUCCESS'
-            def emoji   = status == 'SUCCESS' ? '✅' : '❌'
-            def subject = "${emoji} Irfani Events — Tests ${status} (Build #${env.BUILD_NUMBER})"
-            def appUrl  = env.APP_URL ?: 'http://localhost:3000'
-            def committer = env.COMMITTER_EMAIL ?: 'unknown'
+        always {
+            script {
+                def status    = currentBuild.result ?: 'SUCCESS'
+                def emoji     = status == 'SUCCESS' ? '✅' : '❌'
+                def subject   = "${emoji} Irfani Events — Tests ${status} (Build #${env.BUILD_NUMBER})"
+                def appUrl    = env.APP_URL ?: 'http://51.145.167.177:3000/'
+                def committer = env.COMMITTER_EMAIL ?: 'unknown'
 
-            def body = """
-                <html><body>
-                <h2>Irfani Events — Selenium Test Results</h2>
-                <table border="1" cellpadding="8">
-                  <tr><td><b>Build Status</b></td><td>${status}</td></tr>
-                  <tr><td><b>Build Number</b></td><td>${env.BUILD_NUMBER}</td></tr>
-                  <tr><td><b>Triggered By</b></td><td>${committer}</td></tr>
-                  <tr><td><b>Branch</b></td><td>${env.GIT_BRANCH}</td></tr>
-                  <tr><td><b>App URL</b></td><td>${appUrl}</td></tr>
-                </table>
-                <br>
-                <p>The full HTML test report is attached to this email.</p>
-                <p><a href="${env.BUILD_URL}testReport">Click here to view results in Jenkins</a></p>
-                </body></html>
-            """
+                // If GitHub hid the email with noreply, use sir's real email
+                def recipient = committer.contains('noreply.github.com')
+                    ? 'qasimalik@gmail.com'
+                    : committer
 
-            if (committer != 'unknown') {
-                emailext(
-                    to:          "${committer}",
-                    subject:     subject,
-                    body:        body,
-                    mimeType:    'text/html',
-                    attachmentsPattern: 'test-results/report.html'
-                )
+                def body = """
+                    <html><body>
+                    <h2>Irfani Events — Selenium Test Results</h2>
+                    <table border="1" cellpadding="8">
+                      <tr><td><b>Build Status</b></td><td>${status}</td></tr>
+                      <tr><td><b>Build Number</b></td><td>${env.BUILD_NUMBER}</td></tr>
+                      <tr><td><b>Triggered By</b></td><td>${committer}</td></tr>
+                      <tr><td><b>Branch</b></td><td>${env.GIT_BRANCH}</td></tr>
+                      <tr><td><b>App URL</b></td><td><a href="${appUrl}">${appUrl}</a></td></tr>
+                    </table>
+                    <br>
+                    <p>The full HTML test report is attached to this email.</p>
+                    <p><a href="${env.BUILD_URL}testReport">Click here to view results in Jenkins</a></p>
+                    </body></html>
+                """
+
+                if (committer != 'unknown') {
+                    emailext(
+                        to:                 "${recipient}",
+                        subject:            subject,
+                        body:               body,
+                        mimeType:           'text/html',
+                        attachmentsPattern: 'test-results/report.html'
+                    )
+                }
             }
         }
     }
-}
 }
